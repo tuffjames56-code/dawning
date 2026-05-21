@@ -151,17 +151,42 @@ const MOD_ROUTES = {
 
 // Verifies GitHub's X-Hub-Signature-256 header against env.api.githubSecret.
 // If no secret is configured we fail closed: the webhook is rejected.
+// Logs a diagnostic line on every failure so 401s aren't opaque.
 function verifyGithubSignature(raw, signatureHeader) {
   const secret = env.api.githubSecret || '';
-  if (!secret) return false;
-  if (typeof signatureHeader !== 'string' || !signatureHeader.startsWith('sha256=')) return false;
+  if (!secret) {
+    log.warn('github webhook: GITHUB_WEBHOOK_SECRET is not set in env (failing closed)');
+    return false;
+  }
+  if (typeof signatureHeader !== 'string' || !signatureHeader.startsWith('sha256=')) {
+    log.warn(`github webhook: missing or malformed X-Hub-Signature-256 header (got: ${String(signatureHeader).slice(0, 20)})`);
+    return false;
+  }
   const expected = 'sha256=' + createHmac('sha256', secret).update(raw).digest('hex');
+  const recvLen  = signatureHeader.length;
+  const wantLen  = expected.length;
   try {
     const a = Buffer.from(signatureHeader);
     const b = Buffer.from(expected);
-    if (a.length !== b.length) return false;
-    return timingSafeEqual(a, b);
-  } catch { return false; }
+    if (a.length !== b.length) {
+      log.warn(`github webhook: signature length mismatch (got ${recvLen}, want ${wantLen})`);
+      return false;
+    }
+    const ok = timingSafeEqual(a, b);
+    if (!ok) {
+      // Don't log full sigs (they'd leak), but log a short prefix from each
+      // so you can confirm they're actually different.
+      log.warn(
+        `github webhook: signature mismatch. ` +
+        `got=${signatureHeader.slice(0, 14)}... want=${expected.slice(0, 14)}... ` +
+        `secretLen=${secret.length}, bodyBytes=${Buffer.byteLength(raw)}`,
+      );
+    }
+    return ok;
+  } catch (e) {
+    log.warn(`github webhook: timingSafeEqual threw: ${e.message}`);
+    return false;
+  }
 }
 
 async function handleGithubWebhook(req, raw, discordClient) {
