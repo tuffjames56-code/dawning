@@ -674,6 +674,17 @@ export async function addGiveawayEntry(giveawayId, discordId) {
   if (error) throw error;
 }
 
+export async function getGiveawayEntry(giveawayId, discordId) {
+  const { data, error } = await supabase
+    .from('giveaway_entries')
+    .select('discord_id')
+    .eq('giveaway_id', giveawayId)
+    .eq('discord_id', discordId)
+    .maybeSingle();
+  if (error) throw error;
+  return data;
+}
+
 export async function listGiveawayEntries(giveawayId) {
   const { data, error } = await supabase
     .from('giveaway_entries')

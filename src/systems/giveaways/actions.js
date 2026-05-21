@@ -11,6 +11,7 @@ import {
   setGiveawayMessageId,
   getGiveaway,
   addGiveawayEntry,
+  getGiveawayEntry,
   listGiveawayEntries,
   endGiveaway,
   cancelGiveaway,
@@ -96,12 +97,24 @@ export async function startGiveaway({ discordClient, channel, hostDiscordId, pri
   return g;
 }
 
-export async function recordEntry(giveawayId, discordId) {
+export async function recordEntry(giveawayId, discordId, { discordClient = null } = {}) {
   const g = await getGiveaway(giveawayId);
   if (!g) return { ok: false, reason: 'not_found' };
   if (g.status !== 'active') return { ok: false, reason: 'closed' };
   if (new Date(g.ends_at).getTime() < Date.now()) return { ok: false, reason: 'closed' };
+
+  // Already-entered detection. The upsert below would silently no-op, so
+  // we have to check first to give the user real feedback.
+  const existing = await getGiveawayEntry(giveawayId, discordId);
+  if (existing) return { ok: false, reason: 'already_entered' };
+
   await addGiveawayEntry(giveawayId, discordId);
+
+  // Refresh the embed so the entry count visibly ticks up. Best-effort:
+  // if it fails (rate limit, missing perms), the entry is still recorded.
+  if (discordClient) {
+    refreshGiveawayMessage(discordClient, g).catch((e) => log.warn(`refresh after entry: ${e.message}`));
+  }
   return { ok: true };
 }
 
