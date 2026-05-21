@@ -34,7 +34,7 @@ const VIBRANT_COLORS = [
   0xFFA502, 0xEB3B5A, 0x26DE81, 0xFC5C65, 0xA55EEA,
 ];
 
-const HEADER_EMOJI = ['⚡', '🚀', '💥', '🔥', '✨', '🎯', '🌟', '🛠️', '🎉', '🌀'];
+const HEADER_EMOJI = ['⚡', '🚀', '💥', '🔥', '✨', '🎯', '🌟', '🛠️', '🎉', '🌀', '💫', '⭐'];
 
 function pick(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
 
