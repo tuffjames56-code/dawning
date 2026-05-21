@@ -1,22 +1,20 @@
-// Formats a GitHub push event into a clean Discord embed and posts it to
-// the configured changelog channel. Called from src/api/server.js when a
-// POST hits /github.
+// Formats a GitHub push event into a Discord embed and posts it to the
+// configured changelog channel. Called from src/api/server.js when a POST
+// hits /github.
 //
-// Format:
+// Layout target:
 //
-//   📦 2 commits to main
-//   by Vikas
+//   [avatar] tuffjames56-code
 //
-//   `a1b2c3` make hooks more undetected & fix auto pearl catch
-//      [+] 14   [~] 11   [-] 0
+//   ⚡  **2 new commits** on `main`
 //
-//   `d4e5f6` add new pearl detection
-//      [+] 3   [~] 2   [-] 0
+//   > `f033602`  **Test changelog webhook**
+//   > 🟢 `0`   🟡 `1`   🔴 `0`
 //
-//   ─────────────────────
-//   Dawning · today at 6:57
+//   > `a1b2c3d`  **add new pearl detection**
+//   > 🟢 `3`   🟡 `2`   🔴 `0`
 //
-// Customise the look in formatPushEmbed below.
+//   Dawning · today at 12:51 PM
 
 import { EmbedBuilder } from 'discord.js';
 import { getSetting } from '../systems/settings/index.js';
@@ -26,7 +24,19 @@ const log = logger.child('changelog');
 
 const MAX_COMMITS_SHOWN = 8;
 const MAX_MESSAGE_CHARS = 80;
-const COLOR_PUSH = 0x2B2D31; // muted near-black, matches Discord dark mode
+
+// Vibrant palette. Each push picks one at random so the channel feels alive
+// even when the diff is small.
+const VIBRANT_COLORS = [
+  0xFF6B6B, 0xF7B731, 0x4ECDC4, 0x5F27CD, 0xEE5A6F,
+  0x00D2D3, 0xFEA47F, 0x1DD1A1, 0xFFD93D, 0xF368E0,
+  0xFF9FF3, 0x54A0FF, 0xFF4757, 0x2ED573, 0x70A1FF,
+  0xFFA502, 0xEB3B5A, 0x26DE81, 0xFC5C65, 0xA55EEA,
+];
+
+const HEADER_EMOJI = ['⚡', '🚀', '💥', '🔥', '✨', '🎯', '🌟', '🛠️', '🎉', '🌀'];
+
+function pick(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
 
 function shouldPost(branch) {
   if (!getSetting('changelog_enabled')) return false;
@@ -46,32 +56,45 @@ function formatPushEmbed(payload) {
   const commits    = Array.isArray(payload.commits) ? payload.commits : [];
   const total      = commits.length;
   const pusher     = payload.pusher?.name ?? payload.sender?.login ?? 'someone';
-  const senderUrl  = payload.sender?.html_url;
+  const senderUrl  = payload.sender?.html_url ?? null;
   const avatarUrl  = payload.sender?.avatar_url ?? null;
   const compareUrl = payload.compare ?? payload.repository?.html_url ?? null;
 
-  // Build the commit block.
-  const shown = commits.slice(-MAX_COMMITS_SHOWN); // most recent N
-  const lines = shown.map((c) => {
+  // Each commit as a blockquote so it inherits Discord's vertical bar.
+  // Colored circles for the stats give it punch even when the numbers are
+  // tiny.
+  const shown = commits.slice(-MAX_COMMITS_SHOWN);
+  const blocks = shown.map((c) => {
     const sha     = String(c.id ?? '').slice(0, 7);
     const subject = firstLine(c.message);
     const adds = (c.added    ?? []).length;
     const mods = (c.modified ?? []).length;
     const rems = (c.removed  ?? []).length;
-    const link = c.url ? `[\`${sha}\`](${c.url})` : `\`${sha}\``;
-    return `${link} ${subject}\n  \`[+] ${adds}   [~] ${mods}   [-] ${rems}\``;
+    const shaLink = c.url ? `[\`${sha}\`](${c.url})` : `\`${sha}\``;
+    return `> ${shaLink}  **${subject}**\n` +
+           `> 🟢 \`${adds}\`   🟡 \`${mods}\`   🔴 \`${rems}\``;
   });
 
-  const overflow = total > shown.length ? `\n_…and ${total - shown.length} more_` : '';
-  const headerLink = compareUrl ? `[**${total} commit${total === 1 ? '' : 's'} to \`${branch}\`**](${compareUrl})` : `**${total} commit${total === 1 ? '' : 's'} to \`${branch}\`**`;
-  const pusherLine = senderUrl ? `by [${pusher}](${senderUrl})` : `by ${pusher}`;
+  const overflow = total > shown.length
+    ? `\n\n_…and ${total - shown.length} more_`
+    : '';
 
-  const desc = `${headerLink}\n${pusherLine}\n\n${lines.join('\n\n')}${overflow}`;
+  const emoji = pick(HEADER_EMOJI);
+  const headerLine = compareUrl
+    ? `${emoji}  **[${total} new ${total === 1 ? 'commit' : 'commits'}](${compareUrl})** on \`${branch}\``
+    : `${emoji}  **${total} new ${total === 1 ? 'commit' : 'commits'}** on \`${branch}\``;
+
+  const desc = `${headerLine}\n\n${blocks.join('\n\n')}${overflow}`;
 
   return new EmbedBuilder()
-    .setColor(COLOR_PUSH)
+    .setColor(pick(VIBRANT_COLORS))
+    .setAuthor({
+      name: pusher,
+      iconURL: avatarUrl ?? undefined,
+      url: senderUrl ?? undefined,
+    })
     .setDescription(desc.slice(0, 4000))
-    .setFooter({ text: 'Dawning', iconURL: avatarUrl ?? undefined })
+    .setFooter({ text: 'Dawning' })
     .setTimestamp(new Date());
 }
 
