@@ -1,6 +1,6 @@
 // Formats a GitHub push event into a clean Discord embed and posts it to
 // the configured changelog channel. Called from src/api/server.js when a
-// `POST /github` arrives.
+// POST hits /github.
 //
 // Format:
 //
