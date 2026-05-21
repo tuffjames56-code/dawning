@@ -68,6 +68,9 @@ export const env = {
     // override (default 3001). Prefer the platform-provided one on deploy.
     port:   num('PORT', num('MOD_API_PORT', 3001)),
     secret: req('MOD_API_SECRET'),
+    // Optional. If set, the /github webhook route verifies the X-Hub-
+    // Signature-256 header against this secret and rejects spoofed POSTs.
+    githubSecret: opt('GITHUB_WEBHOOK_SECRET'),
   },
   luckperms: {
     // LuckPerms group names the sponsor system grants via the in-game bot.

@@ -77,6 +77,11 @@ export function registerDefaults() {
   // ----- Tickets -----
   registerSetting({ key: 'tickets_channel_id', category: 'tickets', type: 'string', defaultValue: '', description: 'Channel where the ticket panel lives + tickets get opened as threads under it.' });
 
+  // ----- Changelog (GitHub webhook -> Discord embed) -----
+  registerSetting({ key: 'changelog_enabled',    category: 'changelog', type: 'bool',   defaultValue: false, description: 'Post a clean embed to the changelog channel whenever GitHub pushes hit the webhook.' });
+  registerSetting({ key: 'changelog_channel_id', category: 'changelog', type: 'string', defaultValue: '',    description: 'Channel id for changelog posts.' });
+  registerSetting({ key: 'changelog_branches',   category: 'changelog', type: 'string', defaultValue: '',    description: 'Comma-separated branch names to post for. Empty = post all branches.' });
+
   // ----- System -----
   registerSetting({ key: 'maintenance_mode',              category: 'system',  type: 'bool',   defaultValue: false,                         description: 'When true, all new linking is blocked across /link, the verify panel, and the /verify HTTP endpoint.' });
   registerSetting({ key: 'allow_self_unlink',             category: 'system',  type: 'bool',   defaultValue: true,                          description: 'Whether users can run /unlink themselves. When false, only admins can unlink users.' });

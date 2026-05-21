@@ -14,13 +14,14 @@
 //                       to kick already-linked players off the verify server.
 
 import http from 'node:http';
-import { timingSafeEqual } from 'node:crypto';
+import { createHmac, timingSafeEqual } from 'node:crypto';
 import { env } from '../utils/config.js';
 import { logger } from '../utils/logger.js';
 import { performLink } from '../systems/linking/perform.js';
 import { getUserByMcUuid } from '../db/queries.js';
 import { getSetting } from '../systems/settings/index.js';
 import { setNicknameToMc } from '../utils/discord-nickname.js';
+import { postPushEvent } from '../changelog/index.js';
 
 const log = logger.child('api');
 
@@ -139,24 +140,70 @@ async function handleCheckLinked(body) {
   return { status: 200, body: { linked, mcName: linked ? user.mc_name : null } };
 }
 
-const ROUTES = {
+// Mod routes share a body-secret auth model. GitHub uses its own HMAC header
+// auth, so it's routed separately below.
+const MOD_ROUTES = {
   'POST /verify':       handleVerify,
   'POST /check-linked': handleCheckLinked,
 };
+
+// ---------- GitHub webhook ----------
+
+// Verifies GitHub's X-Hub-Signature-256 header against env.api.githubSecret.
+// If no secret is configured we fail closed: the webhook is rejected.
+function verifyGithubSignature(raw, signatureHeader) {
+  const secret = env.api.githubSecret || '';
+  if (!secret) return false;
+  if (typeof signatureHeader !== 'string' || !signatureHeader.startsWith('sha256=')) return false;
+  const expected = 'sha256=' + createHmac('sha256', secret).update(raw).digest('hex');
+  try {
+    const a = Buffer.from(signatureHeader);
+    const b = Buffer.from(expected);
+    if (a.length !== b.length) return false;
+    return timingSafeEqual(a, b);
+  } catch { return false; }
+}
+
+async function handleGithubWebhook(req, raw, discordClient) {
+  const sig    = req.headers['x-hub-signature-256'];
+  const event  = req.headers['x-github-event'];
+  if (!verifyGithubSignature(raw, sig)) {
+    log.warn(`github webhook auth fail from ${req.socket.remoteAddress}`);
+    return { status: 401, body: { ok: false } };
+  }
+  if (event === 'ping') return { status: 200, body: { ok: true, message: 'pong' } };
+  if (event !== 'push') return { status: 200, body: { ok: true, ignored: event } };
+
+  let payload;
+  try { payload = JSON.parse(raw); }
+  catch { return { status: 400, body: { ok: false, message: 'invalid json' } }; }
+
+  const result = await postPushEvent(discordClient, payload);
+  return { status: 200, body: result };
+}
 
 // ---------- server ----------
 
 export function startApiServer(discordClient) {
   const server = http.createServer(async (req, res) => {
     const key = `${req.method} ${req.url}`;
-    const handler = ROUTES[key];
-    if (!handler) {
-      sendJson(res, 404, { success: false, message: 'not found' });
-      return;
-    }
     noteRequest();
 
     try {
+      // GitHub webhook: HMAC-signed, separate auth model.
+      if (key === 'POST /github') {
+        const raw = await readBody(req);
+        const { status, body } = await handleGithubWebhook(req, raw, discordClient);
+        return sendJson(res, status, body);
+      }
+
+      // Verify-mod routes: body-secret auth.
+      const handler = MOD_ROUTES[key];
+      if (!handler) {
+        sendJson(res, 404, { success: false, message: 'not found' });
+        return;
+      }
+
       const raw = await readBody(req);
       let body;
       try { body = JSON.parse(raw); }
