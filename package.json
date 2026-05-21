@@ -1,0 +1,25 @@
+{
+  "name": "mc-sponsor-bounty-bot",
+  "version": "0.1.0",
+  "description": "Discord bot for a modded Fabric Minecraft server: sponsor + bounty systems with an in-game bot presence.",
+  "main": "index.js",
+  "type": "module",
+  "scripts": {
+    "start": "node index.js",
+    "register": "node scripts/register-commands.js",
+    "migrate:print": "node scripts/print-migration.js"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.45.0",
+    "discord.js": "^14.16.0",
+    "dotenv": "^16.4.5",
+    "minecraft-protocol": "^1.66.2",
+    "mineflayer": "^4.37.1",
+    "node-cron": "^3.0.3",
+    "rcon-client": "^4.2.4",
+    "undici": "^6.20.0"
+  }
+}
