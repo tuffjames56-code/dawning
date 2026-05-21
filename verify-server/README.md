@@ -1,49 +1,107 @@
-# Verify Server
+# Verification Server
 
-A dedicated Fabric MC server for Discord linking. Players join here first
-to link their account, then move to the main server once a trusted member
-sponsors them.
+A dedicated Fabric Minecraft server used for **Discord ↔ MC account linking
+only**. Players join here first, type a 6-digit code in chat, and are
+immediately kicked back to the main server's address. They never see
+anything meaningful — a tiny void world is all that's generated.
 
-## Pterodactyl setup
+The verification server runs:
+- Fabric Loader + Fabric API
+- **Geyser** — accepts Bedrock connections, translates them to Java
+- **Floodgate** — authenticates Bedrock accounts via Xbox Live
+- **`verify-mod`** — the small Fabric mod that exposes `/verify <code>` and
+  POSTs the code to the bot's HTTP API
 
-1. Create a new Fabric server allocation. MC 26.1.2, Fabric Loader 0.19.2+.
-2. Set a memory allocation of 2GB or less — this server holds 5x5 of flat
-   void with idle players sitting in spawn. It does almost nothing.
-3. Open the public allocation port and note it as `VERIFY_SERVER_ADDRESS`
-   in the bot's `.env`. Bedrock players use the same address + UDP port
-   (Geyser default 19132).
+> **Important grammar note for self:** in code and env vars we still use
+> `VERIFY_SERVER_*` for historical reasons. In user-facing copy, prefer
+> "verification server".
 
-## Mods
+---
 
-Drop into `mods/`:
-- **Fabric API**
-- **fabric-language-kotlin** (only if any mod below needs it)
-- **Geyser-Fabric** — accepts Bedrock connections, translates them to Java
-- **Floodgate** — handles Bedrock authentication via Xbox Live
-- **verify-mod** (the sibling project, built with `./gradlew build`)
+## Host requirements
 
-## Floodgate key sync (CRITICAL)
+The verification server is intentionally minimal:
+
+| Resource | Sized for |
+|---|---|
+| RAM | 2 GB is plenty (idle players in a 5×5 void) |
+| Disk | < 200 MB once the world generates |
+| CPU | Almost nothing — no chunks tick |
+| Players | A handful at a time; nobody stays more than ~30 seconds |
+
+Any Fabric-capable host works (Pterodactyl, BisectHosting, Aternos, your
+own VPS).
+
+---
+
+## Building the `verify-mod`
+
+The mod lives in a **sibling project** at `verify-mod/` (one directory up
+from this repo). Build steps:
+
+```bash
+cd ../verify-mod                          # path may vary
+gradle wrapper                            # one-time, needs a system Gradle 8.x install
+./gradlew build                           # produces build/libs/verify-mod-<ver>.jar
+```
+
+If Gradle isn't installed:
+- **SDKMAN** (Linux/macOS/WSL): `sdk install gradle 8.10`
+- **Windows / direct**: download from
+  [gradle.org/install](https://gradle.org/install/) and add to `PATH`
+
+You also need **JDK 21**. Set `JAVA_HOME` if you have multiple JDKs.
+
+After a successful build, the output jar is at:
+
+```
+verify-mod/build/libs/verify-mod-1.0.0.jar
+```
+
+---
+
+## Installing on the verification server
+
+Drop these jars into `mods/`:
+
+| Jar | Source |
+|---|---|
+| `fabric-api-<version>.jar` | [fabricmc.net](https://fabricmc.net/use/installer/) |
+| `geyser-fabric.jar` | [geysermc.org](https://geysermc.org/download) |
+| `floodgate-fabric.jar` | [geysermc.org](https://geysermc.org/download) |
+| `verify-mod-<version>.jar` | the build above |
+
+Boot the server once so the mods generate their config folders, then stop
+it.
+
+---
+
+## Floodgate key sync (critical)
 
 Bedrock players are identified by a deterministic UUID derived from their
-Xbox ID and Floodgate's `key.pem`. If the main server and verify server use
-different keys, the same Bedrock player gets two different UUIDs and the
-link does not transfer.
+Xbox account ID **and** Floodgate's private key. If the verification server
+and the main server use different keys, the same Bedrock player generates
+two different UUIDs and the link doesn't carry over.
 
-After Floodgate generates its key on first launch of the verify server:
-1. Stop the verify server.
-2. Copy `config/floodgate/key.pem` **from the main server** into
-   `config/floodgate/key.pem` on the verify server, overwriting whatever
-   Floodgate generated.
-3. Start the verify server. Both servers now produce identical UUIDs for
-   the same Bedrock account.
+To synchronise:
 
-Verify by running `/floodgate fingerprint` (or whatever Floodgate's status
-command is in the Fabric port) and confirming the fingerprints match.
+1. Boot the **main server** first so Floodgate generates its key.
+2. Stop the **verification server** (if running).
+3. Copy `config/floodgate/key.pem` *from the main server* into
+   `config/floodgate/key.pem` on the verification server, overwriting
+   whatever Floodgate generated there.
+4. Start the verification server.
 
-## World setup
+You can confirm with `/floodgate fingerprint` (or whatever the equivalent
+command is for the Fabric port) — both servers should report the same
+fingerprint.
 
-The included [server.properties](server.properties) configures a void world
-(one bedrock layer at y=0, otherwise air) via:
+---
+
+## World generation
+
+The included [`server.properties`](server.properties) configures a flat
+void world: one layer of bedrock at `y=0`, void biome above it.
 
 ```
 level-type=minecraft\:flat
@@ -52,12 +110,12 @@ generator-settings={"layers":[{"block":"minecraft:bedrock","height":1}],"biome":
 
 ### First boot
 
-1. **Delete the existing `world/` folder** if you previously launched the
-   server with different settings — Minecraft caches the generated world
-   and won't regenerate it just because `generator-settings` changed.
-2. Start the server with the new properties. A flat void world will
-   generate.
-3. Op yourself in console and run, on the world's first boot:
+1. **Delete the existing `world/` folder** if you've previously launched
+   the server with different settings — Minecraft caches the generated
+   world and won't regenerate just because `generator-settings` changed.
+2. Start the server. A flat void world generates.
+3. Op yourself from the console, join in-game, and run these once to lock
+   the spawn:
 
    ```
    /worldborder center 0 0
@@ -69,52 +127,85 @@ generator-settings={"layers":[{"block":"minecraft:bedrock","height":1}],"biome":
    /time set day
    ```
 
-4. **Optional:** place a 5x5 bedrock platform around spawn manually so
-   players have somewhere to stand. (Adventure mode prevents them from
-   breaking it.) The bedrock layer at y=0 is already there but spawn is
-   set to y=2 to give them an air pocket above it.
+4. (Optional) place a small bedrock platform around `0,1,0` so spawning
+   players have a floor. The bedrock layer at `y=0` already exists, but
+   spawn is set to `y=2` to give them headroom.
 
-### Fallback if generator-settings is rejected
+### Fallback if `generator-settings` is rejected
 
-Mojang occasionally changes the JSON format between versions. If 26.1.2
-doesn't accept the inline JSON above (you'll see a warning in the server
-log and end up with a default flat plains world), use one of:
+Mojang occasionally changes the JSON format between versions. If your
+Minecraft version rejects the inline JSON above (look for a warning in the
+server log, ending with a default flat plains world), use one of:
 
-- A void-world datapack (e.g. one that registers a `the_void` world preset).
-- Just accept the default flat world. Adventure mode + spawn protection
-  + worldborder still prevents players from doing anything meaningful —
-  they're only on the server for ~30 seconds anyway.
+- A void-world datapack (registers a `the_void` preset).
+- Just accept the default flat world. Adventure mode + spawn protection +
+  the worldborder still prevents players from doing anything — they're
+  only here for ~30 seconds.
 
-## verify-mod config
+---
 
-After the mod is loaded, edit `config/verify-mod.json`:
+## `verify-mod` configuration
+
+After the mod's first boot, edit `config/verify-mod.json`:
 
 ```json
 {
   "mode": "verify_server",
-  "botApiUrl": "https://your-bot.railway.app",
+  "botApiUrl": "https://your-bot.up.railway.app",
   "apiSecret": "must match MOD_API_SECRET in the bot's .env",
   "mainServerAddress": "play.example.com:25565"
 }
 ```
 
-The mod posts directly to the bot's HTTP API for verification. No
-RCON, no whisper round-trips, nothing leaks to public chat.
+- **`botApiUrl`** — public address of the bot's HTTP API. On Railway it's
+  the auto-generated domain. For local development you can use a tunnel
+  like ngrok or cloudflared.
+- **`apiSecret`** — random string, ≥ 32 chars. Must match `MOD_API_SECRET`
+  in the bot's `.env`. The bot rejects POSTs without a matching secret.
+- **`mainServerAddress`** — shown to the user on successful verification.
 
-## server.properties
+The mod POSTs to the bot's HTTP API directly. No RCON, no whispers, no
+codes ever appear in public chat.
 
-The repo includes a [server.properties](server.properties) template:
-- `online-mode=false` — required by Floodgate (Floodgate handles auth
-  for both Java and Bedrock clients before connections reach the server)
-- `white-list=false` — this server is intentionally open; the main server
-  stays whitelisted and only sponsored players get added
-- Flat world, tight view distance, peaceful, adventure mode — players
-  literally only need to type a code
+---
 
-## Bot-side env vars
+## `server.properties` checklist
 
-In the bot's `.env`, set:
-- `VERIFY_SERVER_ADDRESS=verify.example.com:25565`
-- `MAIN_SERVER_ADDRESS=play.example.com:25565`
-- `MOD_API_PORT=3001` (or whatever port the bot listens on)
-- `MOD_API_SECRET=<random 32+ chars>` — must match the mod config
+The template here:
+
+- `online-mode=false` — required by Floodgate (Floodgate handles auth for
+  both Java and Bedrock connections before they reach vanilla server code).
+- `white-list=false` — the verification server is open by design. The
+  **main server** stays whitelisted; only sponsored players land on it.
+- Flat void world + adventure mode + tight view distance + peaceful — the
+  player has no reason to do anything other than type the code.
+
+---
+
+## Bot-side environment variables
+
+Reference, for what the bot needs to know about your verification server:
+
+```env
+VERIFY_SERVER_ADDRESS=verify.example.com:25565   # shown in DMs
+MAIN_SERVER_ADDRESS=play.example.com:25565       # shown post-link
+MOD_API_PORT=3001                                # local; on Railway PORT is auto-set
+MOD_API_SECRET=<random 32+ char string>          # must equal verify-mod's apiSecret
+VERIFY_CHANNEL_ID=<id of #verify in your guild>
+```
+
+---
+
+## Test flow
+
+End-to-end smoke test:
+
+1. In Discord, click **Link Account** in `#verify` (or run `/link`).
+2. Note the 6-digit code from the ephemeral reply or DM.
+3. Join the verification server.
+4. Run `/verify 482910` in chat — or just type `482910` (Bedrock-friendly
+   fallback that the mod also accepts).
+5. The mod confirms in green, the bot kicks you with a "Discord linked"
+   message, and you receive a DM telling you to request a sponsor.
+6. Confirm in Supabase: the `users` row for your Discord ID now has
+   `status = 'linked'` and the correct `mc_uuid` / `mc_name`.
