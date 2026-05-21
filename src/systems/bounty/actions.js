@@ -1,12 +1,12 @@
 // Bounty lifecycle. Same shape as the sponsor request module: each function
-// owns DB transition + embed render + side-effects (RCON payout / refund,
-// DMs) so the panel handlers, the in-game finalize path, and the expiry task
-// all share the same surface.
+// owns DB transition + embed render + side-effects (in-game item give for
+// payout / refund, DMs) so the panel handlers, the in-game finalize path,
+// and the expiry task all share the same surface.
 //
 // Lifecycle:
 //   depositing → active     (postBounty after deposit session completes)
 //   active     → completed  (markBountyCompleted, called from death listener)
-//   completed  → completed  (claimBountyPayout, sets claimed_by + does RCON give)
+//   completed  → completed  (claimBountyPayout, sets claimed_by + /gives items)
 //   active     → expired    (expireBounty, refunds items to poster)
 //   any        → cancelled  (cancelBounty, refunds items to poster)
 
@@ -172,7 +172,7 @@ export async function markBountyCompleted({ bountyId, killerDiscordId = null, di
 }
 
 /**
- * Give the bounty items to the claimer via RCON. Caller has already verified
+ * Give the bounty items to the claimer via the in-game bot. Caller has verified
  * the killer is linked. Updates the embed (status stays 'completed').
  */
 export async function claimBountyPayout({ bountyId, killerDiscordId, discordClient }) {

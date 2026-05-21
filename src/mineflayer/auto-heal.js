@@ -4,8 +4,8 @@
 //   - saturation amplifier 10     (refills food + saturation)
 //   - resistance amplifier 4 for 10s (soaks the next damage bursts)
 //
-// These are vanilla 1.20+ effect IDs and work via RCON without any plugin.
-// Cooldown prevents RCON spam when damage ticks in quickly.
+// These are vanilla 1.20+ effect IDs and work via the in-game bot, with no
+// plugin required. Cooldown prevents command spam when damage ticks in quickly.
 
 import { mc } from './bot.js';
 import { mcEffect } from './commands.js';

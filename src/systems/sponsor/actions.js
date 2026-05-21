@@ -3,7 +3,7 @@
 // same code path - they differ only in their callers' permission gates.
 //
 // Side effects (best-effort except DB):
-//   - RCON: whitelist add/remove, LP group set
+//   - In-game bot: whitelist add/remove, LP group set, kick
 //   - Discord: role add/remove
 //   - DM: notifications (gated by send_link_dms)
 //   - DB: users + sponsor_logs

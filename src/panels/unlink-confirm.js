@@ -14,7 +14,7 @@ buttonHandlers.set('unlink:cancel', async (interaction) => {
 });
 
 buttonHandlers.set('unlink:confirm', async (interaction) => {
-  // Component interactions have a 3s ack budget; the cascade hits RCON + Discord
+  // Component interactions have a 3s ack budget; the cascade hits the MC server + Discord
   // and easily exceeds that. update() clears the buttons immediately and we
   // editReply() with the final result once the cascade settles.
   await interaction.update({ content: 'Unlinking...', embeds: [], components: [] });

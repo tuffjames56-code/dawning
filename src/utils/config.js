@@ -48,6 +48,10 @@ export const env = {
     // DMs or @-mentions the bot. Admin replies in those threads relay back
     // to the user. Leave empty to disable modmail.
     modmailChannelId:         opt('MODMAIL_CHANNEL_ID'),
+    // Anti-leech: list of guild IDs this bot instance is allowed to operate
+    // in. If the bot is added to anything else, it auto-leaves. Defaults to
+    // DISCORD_GUILD_ID when unset (single-guild deployment). Comma-separated.
+    allowedGuildIds:          opt('ALLOWED_GUILD_IDS'),
   },
   servers: {
     // User-facing MC server addresses, embedded in DMs / kick messages.
@@ -66,9 +70,8 @@ export const env = {
     secret: req('MOD_API_SECRET'),
   },
   luckperms: {
-    // LuckPerms group names used by phase 2's sponsor system. Helpers in
-    // src/rcon/luckperms.js take these as parameters; they're not wired up
-    // to any flow yet.
+    // LuckPerms group names the sponsor system grants via the in-game bot.
+    // Override per-deployment without touching code.
     sponseeGroup: opt('LP_SPONSEE_GROUP', 'sponsee'),
     trustedGroup: opt('LP_TRUSTED_GROUP', 'trusted'),
   },

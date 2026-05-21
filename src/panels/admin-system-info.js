@@ -45,7 +45,7 @@ export async function buildSystemInfoEmbed() {
     .addFields(
       { name: 'Uptime',     value: fmtDuration(Date.now() - startedAt), inline: true },
       { name: 'Mineflayer', value: mineflayerInfo, inline: false },
-      { name: 'RCON',       value: `last success: ${fmtTs(rconLast)}`, inline: true },
+      { name: 'MC commands', value: `last success: ${fmtTs(rconLast)}`, inline: true },
       { name: 'Mod API',    value: `last request: ${fmtTs(apiStats.lastRequestAt)}\nlast hour: ${recentApiRequestCount()}`, inline: true },
       { name: 'Users by status', value:
           `none: ${statuses.none}\n` +

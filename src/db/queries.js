@@ -259,7 +259,7 @@ export async function updateUserFields(discordId, patch) {
   if (error) throw error;
 }
 
-// Raw row nuke for /admin-user-force-unlink. Doesn't touch RCON, Discord roles,
+// Raw row nuke for /admin-user-force-unlink. Doesn't touch the MC server, Discord roles,
 // or sponsor cleanup - that's the user-facing /unlink cascade's job. Use this
 // only when the row is corrupt or social state is already cleaned up some
 // other way.

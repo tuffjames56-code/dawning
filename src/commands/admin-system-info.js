@@ -4,7 +4,7 @@ import { requireAdmin } from '../utils/admin-gate.js';
 
 export const data = new SlashCommandBuilder()
   .setName('admin-system-info')
-  .setDescription('Admin: snapshot of bot/mineflayer/RCON/DB stats.')
+  .setDescription('Admin: snapshot of bot/mineflayer/server/DB stats.')
   .setDMPermission(false)
   .setDefaultMemberPermissions(PermissionFlagsBits.Administrator);
 

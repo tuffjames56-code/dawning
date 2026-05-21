@@ -4,7 +4,7 @@ import { requireAdmin } from '../utils/admin-gate.js';
 
 export const data = new SlashCommandBuilder()
   .setName('admin-user-force-unlink')
-  .setDescription('Admin: raw-nuke user row (no RCON/role cleanup). Use when the cascade is impossible.')
+  .setDescription('Admin: raw-nuke user row (no MC/role cleanup). Use when the cascade is impossible.')
   .setDMPermission(false)
   .setDefaultMemberPermissions(PermissionFlagsBits.Administrator)
   .addUserOption((o) => o.setName('user').setDescription('User').setRequired(true));

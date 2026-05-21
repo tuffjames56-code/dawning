@@ -1,10 +1,10 @@
 // Orchestrates the full self-unlink cascade. Side effects beyond the DB
-// (RCON, Discord role removal, sponsor DM) are best-effort and logged on
-// failure; the DB write is the source of truth and must succeed.
+// (server-side commands, Discord role removal, sponsor DM) are best-effort
+// and logged on failure; the DB write is the source of truth and must succeed.
 //
 // Order of operations is chosen so failures degrade gracefully:
 //   1. DM sponsor (informational, can fail without consequence)
-//   2. RCON whitelist remove + LP clear (idempotent server-side ops)
+//   2. In-game whitelist remove + LP clear + kick (idempotent server-side ops)
 //   3. Discord role removal (independent per role)
 //   4. DB cascade write (single transaction; bails out if it fails)
 //   5. sponsor_logs entry (audit only; informational)
@@ -72,7 +72,7 @@ export async function cascadeUnlink({ user, discordClient }) {
   }
 
   // 4. DB write - the source of truth. If this throws, the caller sees a
-  // partial unlink (Discord roles removed, RCON wiped, but DB still says linked).
+  // partial unlink (Discord roles removed, server-side state wiped, but DB still says linked).
   // Better than silent inconsistency, but admin will need to follow up.
   await cascadeUnlinkRow({ discordId: user.discord_id, cooldownUntil });
 

@@ -81,4 +81,6 @@ export function registerDefaults() {
   registerSetting({ key: 'maintenance_mode',              category: 'system',  type: 'bool',   defaultValue: false,                         description: 'When true, all new linking is blocked across /link, the verify panel, and the /verify HTTP endpoint.' });
   registerSetting({ key: 'allow_self_unlink',             category: 'system',  type: 'bool',   defaultValue: true,                          description: 'Whether users can run /unlink themselves. When false, only admins can unlink users.' });
   registerSetting({ key: 'bot_persona_name',              category: 'system',  type: 'string', defaultValue: 'Dawning',                     description: 'User-facing server/persona name shown in DMs and embeds.' });
+  registerSetting({ key: 'bot_status_text',               category: 'system',  type: 'string', defaultValue: 'minecraft',                   description: 'Text after "Playing" in the bot\'s Discord presence. Empty disables the presence.' });
+  registerSetting({ key: 'bot_status_type',               category: 'system',  type: 'string', defaultValue: 'playing',                     description: 'Presence verb: playing | watching | listening | competing.' });
 }

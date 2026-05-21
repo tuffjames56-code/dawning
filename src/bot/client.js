@@ -1,9 +1,10 @@
-import { Client, GatewayIntentBits, Events, MessageFlags, Partials } from 'discord.js';
+import { ActivityType, Client, GatewayIntentBits, Events, MessageFlags, Partials } from 'discord.js';
 import { env } from '../utils/config.js';
 import { logger } from '../utils/logger.js';
 import { commands } from '../commands/index.js';
 import { buttonHandlers, modalHandlers, selectMenuHandlers, resolveHandler } from '../panels/registry.js';
 import { isBlocked } from '../utils/blocklist.js';
+import { getSetting } from '../systems/settings/index.js';
 
 const log = logger.child('discord');
 
@@ -31,6 +32,7 @@ export function buildDiscordClient() {
 
   client.once(Events.ClientReady, (c) => {
     log.info(`logged in as ${c.user.tag}`);
+    applyPresence(c).catch((e) => log.warn(`presence: ${e.message}`));
   });
 
   client.on(Events.InteractionCreate, async (interaction) => {
@@ -94,4 +96,34 @@ export async function startDiscord() {
   const client = buildDiscordClient();
   await client.login(env.discord.token);
   return client;
+}
+
+// Maps the bot_status_type setting to discord.js's ActivityType enum.
+const TYPE_MAP = {
+  playing:   ActivityType.Playing,
+  watching:  ActivityType.Watching,
+  listening: ActivityType.Listening,
+  competing: ActivityType.Competing,
+};
+
+async function applyPresence(client) {
+  let text, typeKey;
+  try {
+    text    = (getSetting('bot_status_text') ?? '').trim();
+    typeKey = (getSetting('bot_status_type') ?? 'playing').toLowerCase().trim();
+  } catch {
+    return; // settings not initialised yet (shouldn't happen post-ready, defensive)
+  }
+  if (!text) return;
+  const type = TYPE_MAP[typeKey] ?? ActivityType.Playing;
+  client.user.setPresence({
+    activities: [{ name: text.slice(0, 128), type }],
+    status: 'online',
+  });
+}
+
+// Re-apply presence at runtime when the relevant settings change. Called by
+// the settings panel after a successful set.
+export function refreshPresence(client) {
+  return applyPresence(client);
 }

@@ -16,6 +16,7 @@ import { registerModmail } from './src/modmail/index.js';
 import { registerAutomod } from './src/automod/index.js';
 import { registerWelcomer } from './src/welcomer/index.js';
 import { registerBridge } from './src/bridge/index.js';
+import { registerGuildAllowlist } from './src/utils/guild-allowlist.js';
 import './src/panels/index.js'; // side-effect: register panel button/modal handlers
 
 const log = logger.child('main');
@@ -31,6 +32,10 @@ async function main() {
   await initBlocklist();
 
   const discord = await startDiscord();
+
+  // Anti-leech: leave any guild that isn't on the allow-list. Registered
+  // first so foreign guilds are dropped before other handlers can fire.
+  registerGuildAllowlist(discord);
 
   // Modmail registers ClientReady + MessageCreate handlers. Must be set up
   // before / right after login so first messages aren't missed.
