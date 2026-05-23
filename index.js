@@ -17,6 +17,9 @@ import { registerAutomod } from './src/automod/index.js';
 import { registerWelcomer } from './src/welcomer/index.js';
 import { registerBridge } from './src/bridge/index.js';
 import { registerGuildAllowlist } from './src/utils/guild-allowlist.js';
+import { REST, Routes } from 'discord.js';
+import { env } from './src/utils/config.js';
+import { commandData } from './src/commands/index.js';
 import './src/panels/index.js'; // side-effect: register panel button/modal handlers
 
 const log = logger.child('main');
@@ -30,6 +33,24 @@ async function main() {
   registerDefaults();
   await initSettings();
   await initBlocklist();
+
+  // Optional: auto-register slash commands on boot when AUTO_REGISTER_COMMANDS=true.
+  // Lets you push code + add the env var on Railway to publish commands
+  // without running `npm run register` locally. Flip it back off after to
+  // skip the extra API call on every redeploy.
+  if (process.env.AUTO_REGISTER_COMMANDS === 'true') {
+    try {
+      const rest = new REST({ version: '10' }).setToken(env.discord.token);
+      log.info(`auto-registering ${commandData.length} slash commands to guild ${env.discord.guildId}...`);
+      await rest.put(
+        Routes.applicationGuildCommands(env.discord.clientId, env.discord.guildId),
+        { body: commandData },
+      );
+      log.info('slash commands registered.');
+    } catch (e) {
+      log.error('auto-register failed:', e?.message ?? e);
+    }
+  }
 
   const discord = await startDiscord();
 
