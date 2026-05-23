@@ -39,8 +39,7 @@ function approvalPayload({ discordUserId, ip, mcName }) {
       `Your Minecraft account \`${mcName ?? '?'}\` just tried to log in from a new IP address.\n\n` +
       `**IP:** \`${ip}\`\n\n` +
       `Was this you? If yes, click **Allow**. If you didn't try to log in, click **Deny** and the IP stays blocked.`,
-    )
-    .setFooter({ text: 'You can revoke an approved IP later via /admin-ip remove' });
+    );
 
   const row = new ActionRowBuilder().addComponents(
     new ButtonBuilder().setCustomId(`ip:approve:${encIp(ip)}`).setLabel('Allow this IP').setStyle(ButtonStyle.Success),
