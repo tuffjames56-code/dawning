@@ -22,6 +22,7 @@ import { getUserByMcUuid } from '../db/queries.js';
 import { getSetting } from '../systems/settings/index.js';
 import { setNicknameToMc } from '../utils/discord-nickname.js';
 import { postPushEvent } from '../changelog/index.js';
+import { evaluateJoin } from '../systems/security/ip-check.js';
 
 const log = logger.child('api');
 
@@ -140,11 +141,27 @@ async function handleCheckLinked(body) {
   return { status: 200, body: { linked, mcName: linked ? user.mc_name : null } };
 }
 
+async function handleJoinCheck(body, discordClient) {
+  const { mcUuid, ip } = body;
+  if (!mcUuid || !ip) {
+    return { status: 400, body: { approve: false, message: 'missing fields' } };
+  }
+  const result = await evaluateJoin({ mcUuid, ip, discordClient });
+  return {
+    status: 200,
+    body: {
+      approve: result.approve,
+      message: result.kick_message ?? result.reason ?? '',
+    },
+  };
+}
+
 // Mod routes share a body-secret auth model. GitHub uses its own HMAC header
 // auth, so it's routed separately below.
 const MOD_ROUTES = {
   'POST /verify':       handleVerify,
   'POST /check-linked': handleCheckLinked,
+  'POST /join-check':   handleJoinCheck,
 };
 
 // ---------- GitHub webhook ----------

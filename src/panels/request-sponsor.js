@@ -53,8 +53,8 @@ export function buildRequestSponsorPanel() {
     .setColor(0x5865F2)
     .setTitle('🙋 Request a Sponsor')
     .setDescription(
-      `Linked but not yet on the main server? Open a request so a trusted ` +
-      `member can vouch for you.\n\n` +
+      `Linked but don't have a person to sponsor you? Open a request so a ` +
+      `trusted member can vouch for you.\n\n` +
       `Click below and tell us why you'd be a good fit. A trusted member will ` +
       `respond, or your request will expire in ${expiryDays} days.\n\n` +
       `_You can only have one pending request at a time._`,

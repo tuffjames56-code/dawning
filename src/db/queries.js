@@ -674,6 +674,59 @@ export async function addGiveawayEntry(giveawayId, discordId) {
   if (error) throw error;
 }
 
+// ---------- IP security ----------
+
+export async function addApprovedIp(discordId, ip) {
+  // Postgres array_append, deduped via NOT in current array.
+  const { error } = await supabase.rpc('users_add_approved_ip', { p_discord_id: discordId, p_ip: ip });
+  if (error) {
+    // Fallback path without the RPC if you haven't defined it: read-modify-write.
+    const user = await getUserByDiscord(discordId);
+    if (!user) throw new Error(`user not found: ${discordId}`);
+    const set = new Set([...(user.approved_ips ?? []), ip]);
+    const { error: updErr } = await supabase
+      .from('users')
+      .update({ approved_ips: [...set] })
+      .eq('discord_id', discordId);
+    if (updErr) throw updErr;
+  }
+}
+
+export async function removeApprovedIp(discordId, ip) {
+  const user = await getUserByDiscord(discordId);
+  if (!user) return;
+  const next = (user.approved_ips ?? []).filter((x) => x !== ip);
+  const { error } = await supabase
+    .from('users')
+    .update({ approved_ips: next })
+    .eq('discord_id', discordId);
+  if (error) throw error;
+}
+
+export async function clearApprovedIps(discordId) {
+  const { error } = await supabase
+    .from('users')
+    .update({ approved_ips: [], pending_ip: null, pending_ip_at: null })
+    .eq('discord_id', discordId);
+  if (error) throw error;
+}
+
+export async function setPendingIp(discordId, ip) {
+  const { error } = await supabase
+    .from('users')
+    .update({ pending_ip: ip, pending_ip_at: new Date().toISOString() })
+    .eq('discord_id', discordId);
+  if (error) throw error;
+}
+
+export async function clearPendingIp(discordId) {
+  const { error } = await supabase
+    .from('users')
+    .update({ pending_ip: null, pending_ip_at: null })
+    .eq('discord_id', discordId);
+  if (error) throw error;
+}
+
 export async function getGiveawayEntry(giveawayId, discordId) {
   const { data, error } = await supabase
     .from('giveaway_entries')

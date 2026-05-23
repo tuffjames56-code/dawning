@@ -57,6 +57,7 @@ import * as online     from './online.js';
 import * as fun        from './fun.js';
 import * as reactionRoles from './reaction-roles.js';
 import * as ticketSetup   from './ticket-setup.js';
+import * as adminIp       from './admin-ip.js';
 
 const all = [
   link, unlink, verifySetup, sponsorSetup, requestSponsorSetup,
@@ -72,7 +73,7 @@ const all = [
   adminSyncNicknames,
   block, unblock, blocklist, say,
   giveaway, poll, info, online, fun,
-  reactionRoles, ticketSetup,
+  reactionRoles, ticketSetup, adminIp,
 ];
 
 export const commands = new Collection();

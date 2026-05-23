@@ -16,3 +16,4 @@ import './request-sponsor.js';
 import './bounty.js';
 import './giveaway.js';
 import './tickets.js';
+import './ip-approval.js';
