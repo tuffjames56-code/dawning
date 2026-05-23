@@ -3,7 +3,7 @@ import { mc } from './src/mineflayer/bot.js';
 import { registerLinking } from './src/systems/linking/index.js';
 import { startApiServer } from './src/api/server.js';
 import { cleanupExpiredLinkCodes } from './src/db/queries.js';
-import { rconClose } from './src/rcon/client.js';
+import { rconClose, probeRcon } from './src/rcon/client.js';
 import { logger } from './src/utils/logger.js';
 import { registerDefaults } from './src/systems/settings/defaults.js';
 import { initSettings } from './src/systems/settings/index.js';
@@ -33,6 +33,16 @@ async function main() {
   registerDefaults();
   await initSettings();
   await initBlocklist();
+
+  // Probe RCON once at boot so the operator can see which transport will
+  // serve server-side commands. Non-blocking: failure falls back to mineflayer.
+  probeRcon()
+    .then((r) => {
+      if (r.status === 'ok')          log.info(`RCON OK — using as primary transport. server says: ${r.response}`);
+      else if (r.status === 'unavailable') log.warn(`RCON unavailable (${r.error}); using in-game bot as fallback`);
+      else                            log.info('RCON not configured; using in-game bot for all commands');
+    })
+    .catch(() => { /* probe is best-effort */ });
 
   // Optional: auto-register slash commands on boot when AUTO_REGISTER_COMMANDS=true.
   // Lets you push code + add the env var on Railway to publish commands

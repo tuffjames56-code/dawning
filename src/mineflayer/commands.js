@@ -15,6 +15,7 @@
 //   5. Every send + response is logged at INFO level for audit.
 
 import { mc } from './bot.js';
+import { rconSend, isRconAvailable } from '../rcon/client.js';
 import { logger } from '../utils/logger.js';
 
 const log = logger.child('mc/commands');
@@ -89,14 +90,30 @@ function lowLevelValidate(command) {
 }
 
 /**
- * Send a raw command and wait for the server's response (first system
- * message after the send). Caller is responsible for command sanitisation
- * via the typed wrappers below; lowLevelValidate is the final safety net.
- *
+ * Send a raw command. Tries RCON first if it's configured and not in
+ * backoff; falls back to the in-game bot's chat path on any failure.
  * Returns the response text (possibly multi-line) or '' on timeout.
+ *
+ * Why dual-transport: RCON is more reliable but frequently blocked on
+ * managed hosts. The bot keeps working through either path.
  */
 export async function sendCommand(command) {
   const safe = lowLevelValidate(command.replace(/^\//, ''));
+
+  // Try RCON first when it's available.
+  if (isRconAvailable()) {
+    try {
+      log.info(`>> /${safe}  (rcon)`);
+      const resp = await rconSend(safe);
+      log.info(`<< (rcon) ${String(resp).trim() || '(no response)'}`);
+      return String(resp ?? '');
+    } catch (e) {
+      log.warn(`rcon path failed (${e.message}); falling back to in-game bot`);
+      // fall through to mineflayer queue
+    }
+  }
+
+  // Mineflayer fallback. Same queueing + rate limiting as before.
   return new Promise((resolve, reject) => {
     queue.push({ command: safe, resolve, reject });
     kickQueue();
