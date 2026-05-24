@@ -23,7 +23,15 @@ export async function execute(interaction) {
   const status = interaction.options.getString('status');
   try {
     const r = await setUserStatus(user.id, status, interaction.user.id);
-    await interaction.reply({ content: `✓ <@${user.id}> status: ${r.before} → ${r.after}`, flags: MessageFlags.Ephemeral });
+    let msg = `✓ <@${user.id}> status: ${r.before} → ${r.after}`;
+    // Nudge the operator toward /admin-sponsor-punish when banning, since
+    // this command is a raw force-set and doesn't cascade strikes or kick
+    // the player in-game.
+    if (status === 'banned') {
+      msg += `\n\n_Heads up: this is a raw status override. No strike was applied to their sponsor, no in-game kick / whitelist removal happened. ` +
+             `If you meant to discipline a sponsee for breaking a rule, use \`/admin-sponsor-punish\` instead — that bans them properly and strikes whoever vouched for them._`;
+    }
+    await interaction.reply({ content: msg, flags: MessageFlags.Ephemeral });
   } catch (e) {
     await interaction.reply({ content: `✗ ${e.message}`, flags: MessageFlags.Ephemeral });
   }

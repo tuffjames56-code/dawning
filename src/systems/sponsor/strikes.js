@@ -96,8 +96,10 @@ export async function applyStrikePunishment({ sponseeUser, severity, discordClie
   let outcome = 'strike';
   const sponseeDisplay = String(sponseeUser.mc_name ?? '').replace(/^\./, '');
 
+  const decayDays = getSetting('strike_decay_days');
+
   if (newStrikes >= banThreshold) {
-    // ----- Sponsor banned.
+    // ----- Sponsor banned themselves into oblivion.
     updates.status = 'banned';
     updates.next_sponsor_at = null;
     await rconBan(sponsor.mc_name);
@@ -105,7 +107,15 @@ export async function applyStrikePunishment({ sponseeUser, severity, discordClie
       remove: [env.discord.trustedRoleId, env.discord.sponseeRoleId, env.discord.verifiedRoleId],
     }, `sponsor banned: ${newStrikes} strikes`);
     await tryDM(discordClient, sponsor.discord_id,
-      `You've been banned. Your strike count reached **${newStrikes}/${banThreshold}** after your sponsee \`${sponseeDisplay}\` was punished (${severity}).`);
+      `⛔ **Your sponsee was banned, and you've hit the strike limit.**\n\n` +
+      `**Sponsee:** \`${sponseeDisplay}\`\n` +
+      `**Severity:** ${severity}\n` +
+      `**Your strikes:** ${newStrikes}/${banThreshold}\n\n` +
+      `**What this means for you:**\n` +
+      `• You've been removed from the main server (whitelist + roles).\n` +
+      `• Your account is marked **banned**. You can no longer sponsor or play.\n` +
+      `• Contact an admin if you believe this is in error.`,
+    );
     outcome = 'sponsor_banned';
   } else if (newStrikes >= suspendThreshold) {
     // ----- Sponsor suspended from sponsoring.
@@ -113,13 +123,31 @@ export async function applyStrikePunishment({ sponseeUser, severity, discordClie
     updates.next_sponsor_at = suspendUntil.toISOString();
     const unix = Math.floor(suspendUntil.getTime() / 1000);
     await tryDM(discordClient, sponsor.discord_id,
-      `Your sponsee \`${sponseeDisplay}\` was punished (${severity}). Strikes: **${newStrikes}/${banThreshold}**. ` +
-      `Your sponsoring privileges are suspended until <t:${unix}:R>.`);
+      `⚠ **Your sponsee was banned. You've been suspended from sponsoring.**\n\n` +
+      `**Sponsee:** \`${sponseeDisplay}\`\n` +
+      `**Severity:** ${severity}\n` +
+      `**Your strikes:** ${newStrikes}/${banThreshold}\n\n` +
+      `**What this means for you:**\n` +
+      `• You can no longer sponsor anyone new until <t:${unix}:R>.\n` +
+      `• You can still play on the main server normally.\n` +
+      `• One strike is removed automatically every **${decayDays} days clean** (no further punishments).\n` +
+      `• At **${banThreshold} strikes**, your account is banned outright. Be careful who you vouch for.`,
+    );
     outcome = 'sponsor_suspended';
   } else {
     // ----- Just an informational strike.
     await tryDM(discordClient, sponsor.discord_id,
-      `Your sponsee \`${sponseeDisplay}\` was punished (${severity}). You now have **${newStrikes}/${banThreshold}** strikes.`);
+      `⚠ **Your sponsee has been banned.**\n\n` +
+      `**Sponsee:** \`${sponseeDisplay}\`\n` +
+      `**Severity:** ${severity}\n` +
+      `**Your strikes:** +${delta} → **${newStrikes}/${banThreshold}**\n\n` +
+      `**What this means for you:**\n` +
+      `• You picked up a strike for vouching for them.\n` +
+      `• At **${suspendThreshold} strikes**, sponsoring gets suspended for ${getSetting('strike_suspend_days')} days.\n` +
+      `• At **${banThreshold} strikes**, your own account is banned.\n` +
+      `• One strike decays every **${decayDays} days clean** (no further punishments).\n` +
+      `• Be more careful about who you vouch for next time.`,
+    );
   }
 
   await updateUserFields(sponsor.discord_id, updates);

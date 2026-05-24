@@ -118,7 +118,7 @@ export async function logSponsorAction({
 
 // ---------- link codes ----------
 
-export async function createLinkCode({ code, discordId, expiresAt }) {
+export async function createLinkCode({ code, discordId, expiresAt, interactionToken = null, applicationId = null }) {
   // Wipe any prior pending code for this user first so /link is idempotent.
   await supabase.from('link_codes').delete().eq('discord_id', discordId);
 
@@ -126,6 +126,8 @@ export async function createLinkCode({ code, discordId, expiresAt }) {
     code,
     discord_id: discordId,
     expires_at: expiresAt.toISOString(),
+    interaction_token: interactionToken,
+    application_id:    applicationId,
   });
   if (error) throw error;
 }

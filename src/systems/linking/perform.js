@@ -35,5 +35,14 @@ export async function performLink({ mcUuid, mcName, code }) {
   await linkUser({ discordId: codeRow.discord_id, mcUuid, mcName, status });
   log.info(`linked discord=${codeRow.discord_id} mc=${mcName} (${mcUuid}) status=${status}`);
 
-  return { success: true, message: 'Linked!', discordId: codeRow.discord_id, mcName };
+  return {
+    success:          true,
+    message:          'Linked!',
+    discordId:        codeRow.discord_id,
+    mcName,
+    // Pass the ephemeral's interaction handle back so the caller can edit
+    // the original "your code is ..." message into a success state.
+    interactionToken: codeRow.interaction_token ?? null,
+    applicationId:    codeRow.application_id    ?? null,
+  };
 }

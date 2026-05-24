@@ -126,6 +126,25 @@ async function handleVerify(body, discordClient) {
     // response.
     setNicknameToMc(discordClient, result.discordId, result.mcName ?? mcName)
       .catch((e) => log.warn(`nickname sync failed: ${e.message}`));
+
+    // Edit the original "your code is ..." ephemeral into a "linked" state
+    // via Discord's webhook API. The token+appId were saved alongside the
+    // link code at button-click time; both have to be present and the token
+    // can't be older than ~15 minutes (Discord-side expiry) for this to land.
+    if (result.interactionToken && result.applicationId) {
+      const displayName = String(result.mcName ?? mcName).replace(/^\./, '');
+      discordClient.rest
+        .patch(`/webhooks/${result.applicationId}/${result.interactionToken}/messages/@original`, {
+          body: {
+            content: `✓ Linked your Discord to **\`${displayName}\`**. You can close this message.`,
+            embeds: [],
+            components: [],
+            flags: 64, // ephemeral
+          },
+          auth: false, // webhook-token auth, no bot token needed
+        })
+        .catch((e) => log.warn(`edit verify ephemeral: ${e.message}`));
+    }
   }
 
   return { status: 200, body: { success: result.success, message: result.message } };

@@ -72,7 +72,16 @@ buttonHandlers.set(CUSTOM_ID, async (interaction) => {
 
     const code = generateLinkCode();
     const expiresAt = new Date(Date.now() + getSetting('link_code_ttl_minutes') * 60 * 1000);
-    await createLinkCode({ code, discordId: interaction.user.id, expiresAt });
+    // Save the interaction token + appId so the /verify HTTP endpoint can
+    // edit this ephemeral later via Discord's webhook API (turns the
+    // "your code is ..." message into "✓ Linked!" after a successful link).
+    await createLinkCode({
+      code,
+      discordId: interaction.user.id,
+      expiresAt,
+      interactionToken: interaction.token,
+      applicationId:    interaction.applicationId,
+    });
 
     await interaction.editReply(buildVerifyInstructions(code));
   } catch (err) {

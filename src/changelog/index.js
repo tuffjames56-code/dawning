@@ -25,6 +25,30 @@ const log = logger.child('changelog');
 const MAX_COMMITS_SHOWN = 8;
 const MAX_MESSAGE_CHARS = 80;
 
+// Fetches per-commit line stats from the GitHub API. Returns
+// { additions, deletions, total } or null on failure. The push webhook only
+// includes file counts in `added/modified/removed`, never line counts, so we
+// have to call this separately if we want accurate numbers.
+async function fetchCommitStats(repoFullName, sha) {
+  if (!repoFullName || !sha) return null;
+  try {
+    const headers = { Accept: 'application/vnd.github+json', 'User-Agent': 'dawning-bot' };
+    if (process.env.GITHUB_API_TOKEN) {
+      headers.Authorization = `Bearer ${process.env.GITHUB_API_TOKEN}`;
+    }
+    const r = await fetch(`https://api.github.com/repos/${repoFullName}/commits/${sha}`, { headers });
+    if (!r.ok) {
+      log.warn(`commit stats fetch ${sha}: HTTP ${r.status}`);
+      return null;
+    }
+    const json = await r.json();
+    return json.stats ?? null;
+  } catch (e) {
+    log.warn(`commit stats fetch ${sha}: ${e.message}`);
+    return null;
+  }
+}
+
 // Vibrant palette. Each push picks one at random so the channel feels alive
 // even when the diff is small.
 const VIBRANT_COLORS = [
@@ -51,7 +75,7 @@ function firstLine(message) {
   return line.length > MAX_MESSAGE_CHARS ? line.slice(0, MAX_MESSAGE_CHARS - 1) + '…' : line;
 }
 
-function formatPushEmbed(payload) {
+async function formatPushEmbed(payload) {
   const branch     = String(payload.ref ?? '').replace('refs/heads/', '');
   const commits    = Array.isArray(payload.commits) ? payload.commits : [];
   const total      = commits.length;
@@ -59,20 +83,27 @@ function formatPushEmbed(payload) {
   const senderUrl  = payload.sender?.html_url ?? null;
   const avatarUrl  = payload.sender?.avatar_url ?? null;
   const compareUrl = payload.compare ?? payload.repository?.html_url ?? null;
+  const repoName   = payload.repository?.full_name ?? null;
 
-  // Each commit as a blockquote so it inherits Discord's vertical bar.
-  // Colored circles for the stats give it punch even when the numbers are
-  // tiny.
+  // Pull real line stats (additions / deletions) per commit. The push
+  // payload only has file lists, so without this we'd show file counts and
+  // mislead about diff size.
   const shown = commits.slice(-MAX_COMMITS_SHOWN);
-  const blocks = shown.map((c) => {
+  const stats = await Promise.all(shown.map((c) => fetchCommitStats(repoName, c.id)));
+
+  const blocks = shown.map((c, i) => {
     const sha     = String(c.id ?? '').slice(0, 7);
     const subject = firstLine(c.message);
-    const adds = (c.added    ?? []).length;
-    const mods = (c.modified ?? []).length;
-    const rems = (c.removed  ?? []).length;
+    const s       = stats[i];
+    const adds    = s?.additions ?? null;
+    const dels    = s?.deletions ?? null;
+    const totalLn = s?.total ?? null;
     const shaLink = c.url ? `[\`${sha}\`](${c.url})` : `\`${sha}\``;
-    return `> ${shaLink}  **${subject}**\n` +
-           `> 🟢 \`${adds}\`   🟡 \`${mods}\`   🔴 \`${rems}\``;
+    // If the API call failed, fall back to file counts so we show *something*.
+    const statsLine = (adds != null && dels != null)
+      ? `> 🟢 \`+${adds}\`   🔴 \`-${dels}\`   📊 \`${totalLn}\` lines`
+      : `> 🟢 \`${(c.added ?? []).length}\` files added   🟡 \`${(c.modified ?? []).length}\` modified   🔴 \`${(c.removed ?? []).length}\` removed`;
+    return `> ${shaLink}  **${subject}**\n${statsLine}`;
   });
 
   const overflow = total > shown.length
@@ -113,8 +144,9 @@ export async function postPushEvent(discordClient, payload) {
       return { skipped: true, reason: 'channel not reachable' };
     }
 
+    const embed = await formatPushEmbed(payload);
     await channel.send({
-      embeds: [formatPushEmbed(payload)],
+      embeds: [embed],
       allowedMentions: { parse: [] },
     });
     log.info(`posted ${commits.length} commit(s) to changelog (branch=${branch})`);
